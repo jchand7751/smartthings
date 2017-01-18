@@ -1,1 +1,1 @@
-# smartthings
+# Just a repo with my stuff
