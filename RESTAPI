@@ -1,0 +1,357 @@
+/**
+ *  REST API
+ *
+ *  Copyright 2016 SmartThings
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *
+ */
+definition(
+    name: "Rest API",
+    namespace: "smartthings",
+    author: "JC",
+    description: "Rest API",
+    category: "",
+    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
+    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+    )
+
+
+preferences {
+  section ("Allow external service to control these things...") {
+    input "switches", "capability.switch", title: "Which switches?", multiple: true, required: true
+    input "switchlevels", "capability.switchLevel", title: "Which dimmers?", multiple: true, required: true
+    input "thermostats", "capability.thermostat", title: "Which thermostats?", multiple: true, required: false
+    input "motiontempsensors", "capability.motionSensor", title: "Which motion and temperature sensors?", multiple: true, required: false
+    input "contactsensors", "capability.contactSensor", title: "Which contact sensors?", multiple: true, required: false
+  }
+}
+
+mappings {
+  path("/switches") {
+    action: [
+      GET: "listSwitches"
+    ]
+  }
+  
+  path("/switches/:devid/:command") {
+    action: [
+      GET: "getSwitch",
+      PUT: "setSwitch"
+    ]
+  }
+  
+  path("/levels") {
+    action: [
+      GET: "listLevels"
+    ]
+  }
+  path("/levels/:devid/:command") {
+    action: [
+      GET: "getLevel",
+      PUT: "setLevel"
+    ]
+  }
+    
+  path("/thermostats") {
+    action: [
+      GET: "listThermostats"
+    ]
+  }
+  
+  path("/thermostats/:devid/:command") {
+    action: [
+      GET: "getThermostat",
+      PUT: "setThermostat"
+    ]
+  }
+  
+    path("/motiontempsensors") {
+    action: [
+      GET: "listmotiontempSensors"
+    ]
+  }
+  
+   path("/motiontempsensors/:devid/:command") {
+    action: [
+      GET: "getmotiontempSensor",
+      //PUT: "setThermostat"
+    ]
+  }
+  
+  path("/contactsensors") {
+    action: [
+      GET: "listContactsensors"
+    ]
+  }
+  
+  path("/contactsensors/:devid/:command") {
+    action: [
+      GET: "getContactsensor",
+      //PUT: "setContactsensor"
+    ]
+  }
+  
+  path("/hub") {
+    action: [
+      GET: "getHub"
+    ]
+  }
+
+	path("/hub/:devid/:command") {
+    action: [
+      //GET: "getThermostat",
+      PUT: "setHub"
+    ]
+  }
+  
+}
+
+// return a simple list with displayname, state, and ID
+def listSwitches() {
+
+    def resp = []
+    switches.each {
+        resp << [name: it.displayName, value: it.currentValue("switch"), id: it.id]
+    }
+    return resp
+}
+
+def getHub() {
+    def resp = []
+    resp << location.currentMode
+    return resp
+}
+
+def listLevels() {
+    def resp = []
+    switchlevels.each {
+        resp << [name: it.displayName, value: it.currentValue("switch"), id: it.id]
+    }
+    return resp
+}
+
+def listmotiontempSensors() {
+    def resp = []
+    motiontempsensors.each {
+        resp << [name: it.displayName, motion: it.currentValue("motion"), temperature: it.currentValue("temperature"),id: it.id]
+    }
+    return resp
+}
+
+
+def listThermostats() {
+    def resp = []
+    thermostats.each {
+    	resp << [name: it.displayName, temperature: it.currentValue("temperature"), thermostatstatus: it.currentValue("thermostatStatus"), operatingstate: it.currentValue("thermostatOperatingState"), heatingsetpoint: it.currentValue("heatingSetpoint"), coolingsetpoint: it.currentValue("coolingSetpoint"), thermostatmode: it.currentValue("thermostatMode"), humidity: it.currentValue("humidity"), currentprogramname: it.currentValue("programNameForUI"), weatherTemperature: it.currentValue("weatherTemperature"), weathersymbol: it.currentValue("weatherSymbol"), id: it.id]
+    }
+    return resp
+}
+
+def listContactsensors() {
+    def resp = []
+    contactsensors.each {
+        resp << [name: it.displayName, contact: it.currentValue("contact"), id: it.id]
+    }
+    return resp
+}
+
+def getSwitch() {
+ 	def command = params.command
+	// find our device from the parameters
+    def device = switches.find { it.id == params.devid }
+	if (command == 'state') {
+    	def resp = []
+        resp << [name: device.displayName, switch: device.currentValue("switch"), level: device.currentValue("level"), id: device.id]
+        return resp
+    }
+}
+
+def setSwitch() {
+     // use the built-in request object to get the command parameter
+    def commandcheck = params.command
+	// find our device from the parameters
+    def device = switches.find { it.id == params.devid }
+     if (commandcheck.contains('='))
+     {
+       def command = (commandcheck.tokenize('='))[0]
+       def value = (commandcheck.tokenize('='))[1]
+       device.each {
+            if (!it.hasCommand(command)) {
+                httpError(501, "$command is not a valid command"
+            	}
+            }
+       device."$command"(value)
+     }
+     else {
+        def command = commandcheck
+    	if (command) {
+        // check that the command is supported
+        device.each {
+            if (!it.hasCommand(command)) {
+                httpError(501, "$command is not a valid command")
+            } 
+        } 
+        // run the command on the selected device
+        device."$command"()
+    	}   
+	}
+}
+
+def getLevel() {
+ 	def command = params.command
+	// find our device from the parameters
+    def device = switchlevels.find { it.id == params.devid }
+	if (command == 'state') {
+    	def resp = []
+        resp << [name: device.displayName, switch: device.currentValue("switch"), level: device.currentValue("level"), id: device.id]
+        return resp
+    }
+}
+
+def getmotiontempSensor() {
+ 	def command = params.command
+	// find our device from the parameters
+    def device = motiontempsensors.find { it.id == params.devid }
+	if (command == 'state') {
+    	def resp = []
+        resp << [name: device.displayName, temperature: device.currentValue("temperature"), motion: device.currentValue("motion"), id: device.id]
+        return resp
+    }
+}
+
+def getThermostat() {
+ 	def command = params.command
+	// find our device from the parameters
+    def device = thermostats.find { it.id == params.devid }
+	if (command == 'state') {
+    	def resp = []
+        resp << [name: device.displayName, temperature: device.currentValue("temperature"), thermostatstatus: device.currentValue("thermostatStatus"), operatingstate: device.currentValue("thermostatOperatingState"), heatingsetpoint: device.currentValue("heatingSetpoint"), coolingsetpoint: device.currentValue("coolingSetpoint"), thermostatmode: device.currentValue("thermostatMode"), humidity: device.currentValue("humidity"), currentprogramname: device.currentValue("programNameForUI"), weatherTemperature: device.currentValue("weatherTemperature"), weathersymbol: device.currentValue("weatherSymbol"), id: device.id]
+        return resp
+    }
+}
+
+def getContactsensor() {
+ 	def command = params.command
+	// find our device from the parameters
+    def device = contactsensors.find { it.id == params.devid }
+	if (command == 'state') {
+    	def resp = []
+        resp << [name: device.displayName, contact: device.currentValue("contact"), id: device.id]
+        return resp
+    }
+    if (command == 'showopen') {
+    	def opendevice = contactsensors.findAll { it.currentValue("contact") == "open" }
+        def resp = []
+    	opendevice.each {
+        resp << [name: it.displayName, contact: it.currentValue("contact"), id: it.id]
+    	}
+    	return resp
+    }
+}
+
+def setLevel() {
+    // use the built-in request object to get the command parameter
+    def commandcheck = params.command
+	// find our device from the parameters
+    def device = switchlevels.find { it.id == params.devid }
+     if (commandcheck.contains('='))
+     {
+       def command = (commandcheck.tokenize('='))[0]
+       def value = (commandcheck.tokenize('='))[1]
+       
+       device.each {
+            if (!it.hasCommand(command)) {
+                httpError(501, "$command is not a valid command for all switches1 $value")
+            	}
+            }
+       device."$command"(value)
+     }
+     else {
+    	// if the command is state just output the status
+        def command = commandcheck
+    	if (command) {
+        device.each {
+            if (!it.hasCommand(command)) {
+                httpError(501, "$command is not a valid command")
+            } 
+        } 
+        // run the command on the selected device
+        device."$command"()
+    	}   
+	}
+}
+
+def setThermostat() {
+    // use the built-in request object to get the command parameter
+    def commandcheck = params.command
+	// find our device from the parameters
+    def device = thermostats.find { it.id == params.devid }
+     if (commandcheck.contains('='))
+     {
+       def command = (commandcheck.tokenize('='))[0]
+       def value = (commandcheck.tokenize('='))[1]       
+       device.each {
+            if (!it.hasCommand(command)) {
+                httpError(501, "$command is not a valid command")
+            	}
+            }
+       device."$command"(value)
+     }
+     else {
+    	// if the command is state just output the status
+        def command = commandcheck
+    	if (command) {
+        device.each {
+            if (!it.hasCommand(command)) {
+                httpError(501, "$command is not a valid command")
+            } 
+        } 
+        // run the command on the selected device
+        device."$command"()
+    	}   
+	}
+}
+
+def setHub() {
+     // use the built-in request object to get the command parameter
+    def commandcheck = params.command
+	// find our device from the parameters
+    def device = params.devid
+     if (commandcheck.contains('='))
+     {
+       def command = (commandcheck.tokenize('='))[0]
+       def value = (commandcheck.tokenize('='))[1]
+       location.helloHome.execute($command)
+     }
+     else {
+    	// if the command is a single command just do it
+        def command = commandcheck
+    	if (command) {
+         if (command == "Morning")
+        {
+            location.helloHome.execute("Morning")
+        }
+        if (command == "HelloHouse")
+        {
+            location.helloHome.execute("Hello House")
+        }
+        if (command == "ByeHouse")
+        {
+            location.helloHome.execute("Bye House")
+        } 
+    	}   
+	}
+}
+
+def installed() {}
+
+def updated() {}
