@@ -186,7 +186,7 @@ def setSwitch() {
        def value = (commandcheck.tokenize('='))[1]
        device.each {
             if (!it.hasCommand(command)) {
-                httpError(501, "$command is not a valid command"
+                httpError(501, "$command is not a valid command")
             	}
             }
        device."$command"(value)
